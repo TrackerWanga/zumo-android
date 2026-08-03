@@ -1,6 +1,5 @@
 package com.zumo.app.ui.conversations
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -125,8 +124,9 @@ fun ConversationItem(
                     .drawBehind { drawCircle(color = accent.primary.copy(alpha = 0.3f)) },
                 contentAlignment = Alignment.Center
             ) {
+                val initial = conversation.title?.firstOrNull()?.uppercase() ?: "?"
                 Text(
-                    text = (conversation.title?.firstOrNull() ?: "?").uppercase(),
+                    text = initial,
                     color = accent.primary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold

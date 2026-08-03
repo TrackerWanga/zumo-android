@@ -1,6 +1,7 @@
 package com.zumo.app.ui.auth
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.zumo.app.ui.components.ZumoTextField
 import com.zumo.app.ui.theme.*
 
 @Composable
@@ -29,14 +31,8 @@ fun AuthScreen(
 
     val accent = LocalZumoAccent.current
 
-    // Navigate on login success
     LaunchedEffect(uiState.isLoggedIn) {
         if (uiState.isLoggedIn) onLoginSuccess()
-    }
-
-    // Sync error from ViewModel
-    LaunchedEffect(uiState.error) {
-        // Error is displayed directly from uiState
     }
 
     Box(
@@ -49,12 +45,11 @@ fun AuthScreen(
                 .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Logo area
             AnimatedContent(
                 targetState = isLogin,
                 transitionSpec = {
-                    fadeIn(animationSpec = tween(400)) + slideInVertically { it / 2 } togetherWith
-                    fadeOut(animationSpec = tween(300)) + slideOutVertically { -it / 2 }
+                    (fadeIn(animationSpec = tween(400)) + slideInVertically { it / 2 }) togetherWith
+                    (fadeOut(animationSpec = tween(300)) + slideOutVertically { -it / 2 })
                 },
                 label = "title"
             ) { login ->
@@ -77,7 +72,6 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(36.dp))
 
-            // Form card
             GlassSurface(
                 modifier = Modifier.fillMaxWidth(),
                 glowColor = accent.glow,
@@ -128,7 +122,6 @@ fun AuthScreen(
                         }
                     )
 
-                    // Error message
                     AnimatedVisibility(
                         visible = uiState.error != null,
                         enter = fadeIn() + slideInVertically(),
@@ -144,19 +137,12 @@ fun AuthScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Submit button
                     Button(
                         onClick = {
-                            when {
-                                email.isBlank() || password.isBlank() -> {
-                                    viewModel.clearError()
-                                }
-                                !isLogin && username.isBlank() -> {
-                                    viewModel.clearError()
-                                }
-                                isLogin -> viewModel.login(email.trim(), password)
-                                else -> viewModel.signup(email.trim(), username.trim(), password)
-                            }
+                            if (email.isBlank() || password.isBlank()) return@Button
+                            if (!isLogin && username.isBlank()) return@Button
+                            if (isLogin) viewModel.login(email.trim(), password)
+                            else viewModel.signup(email.trim(), username.trim(), password)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -186,7 +172,6 @@ fun AuthScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Toggle login/signup
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
@@ -213,13 +198,8 @@ fun AuthScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Forgot password (login only)
             AnimatedVisibility(visible = isLogin) {
-                TextButton(onClick = {
-                    if (email.isNotBlank()) {
-                        // TODO: trigger forgot password
-                    }
-                }) {
+                TextButton(onClick = {}) {
                     Text(
                         text = "Forgot password?",
                         color = accent.primary.copy(alpha = 0.6f),

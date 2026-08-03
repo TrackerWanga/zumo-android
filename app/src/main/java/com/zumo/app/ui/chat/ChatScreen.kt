@@ -8,12 +8,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,7 +44,6 @@ fun ChatScreen(
         viewModel.loadMessages(conversationId)
     }
 
-    // Auto-scroll to bottom on new messages
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
@@ -81,7 +85,6 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Messages list
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
@@ -97,7 +100,6 @@ fun ChatScreen(
                     )
                 }
 
-                // Pending messages
                 items(uiState.pendingMessages, key = { it.id }) { pending ->
                     PendingMessageBubble(
                         text = pending.text,
@@ -108,7 +110,6 @@ fun ChatScreen(
                 }
             }
 
-            // Input bar
             GlassSurface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -127,11 +128,8 @@ fun ChatScreen(
                         value = messageText,
                         onValueChange = { messageText = it },
                         modifier = Modifier.weight(1f),
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            color = ZumoTextPrimary,
-                            fontSize = 15.sp
-                        ),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(accent.primary),
+                        textStyle = TextStyle(color = ZumoTextPrimary, fontSize = 15.sp),
+                        cursorBrush = SolidColor(accent.primary),
                         decorationBox = { innerTextField ->
                             Box {
                                 if (messageText.isEmpty()) {
@@ -148,19 +146,11 @@ fun ChatScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Send button
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .then(
-                                Modifier.drawBehind {
-                                    drawCircle(color = accent.primary)
-                                }
-                            )
-                            .then(
-                                if (messageText.isNotBlank()) Modifier else Modifier
-                            ),
+                            .drawBehind { drawCircle(color = accent.primary) },
                         contentAlignment = Alignment.Center
                     ) {
                         TextButton(
@@ -196,7 +186,6 @@ fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
     ) {
-        // Username (if not mine)
         if (!isMine && message.username != null) {
             Text(
                 text = message.username,
@@ -222,14 +211,14 @@ fun MessageBubble(
                     if (isMine) accent.primary.copy(alpha = 0.25f)
                     else ZumoDarkSurface.copy(alpha = 0.7f)
                 )
-                .then(
-                    if (isMine) Modifier.drawBehind {
+                .drawBehind {
+                    if (isMine) {
                         drawRoundRect(
                             color = accent.glow,
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
+                            cornerRadius = CornerRadius(16.dp.toPx())
                         )
-                    } else Modifier
-                )
+                    }
+                }
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Column {
