@@ -1,15 +1,18 @@
 package com.zumo.app.ui.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zumo.app.data.api.AuthApi
 import com.zumo.app.data.local.TokenManager
 import com.zumo.app.data.model.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class AuthUiState(
@@ -34,10 +37,12 @@ class AuthViewModel @Inject constructor(
 
     private fun checkExistingSession() {
         viewModelScope.launch {
-            val token = tokenManager.getToken()
-            if (token != null) {
-                try {
-                    val response = authApi.verify("Bearer $token")
+            try {
+                val token = tokenManager.getToken()
+                if (token != null) {
+                    val response = withContext(Dispatchers.IO) {
+                        authApi.verify("Bearer $token")
+                    }
                     if (response.valid && response.user != null) {
                         _uiState.value = AuthUiState(
                             isLoggedIn = true,
@@ -46,9 +51,10 @@ class AuthViewModel @Inject constructor(
                     } else {
                         tokenManager.clearToken()
                     }
-                } catch (e: Exception) {
-                    tokenManager.clearToken()
                 }
+            } catch (e: Exception) {
+                Log.e("ZumoAuth", "Session check failed", e)
+                tokenManager.clearToken()
             }
         }
     }
@@ -57,24 +63,33 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = authApi.login(LoginRequest(email, password))
-                if (response.token != null && response.user != null) {
+                val response = withContext(Dispatchers.IO) {
+                    authApi.login(LoginRequest(email, password))
+                }
+                Log.d("ZumoAuth", "Login response: token=${response.token != null}, user=${response.user != null}, error=${response.error}")
+                
+                if (response.token != null) {
                     tokenManager.saveToken(response.token)
-                    tokenManager.saveUserId(response.user.uid)
-                    _uiState.value = AuthUiState(
-                        isLoggedIn = true,
-                        currentUser = response.user
-                    )
+                    if (response.user != null) {
+                        tokenManager.saveUserId(response.user.uid)
+                        _uiState.value = AuthUiState(
+                            isLoggedIn = true,
+                            currentUser = response.user
+                        )
+                    } else {
+                        _uiState.value = AuthUiState(isLoggedIn = true)
+                    }
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = response.error ?: "Login failed"
+                        error = response.error ?: "Login failed - no token received"
                     )
                 }
             } catch (e: Exception) {
+                Log.e("ZumoAuth", "Login error", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Network error"
+                    error = "Network error: ${e.message}"
                 )
             }
         }
@@ -84,14 +99,22 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = authApi.signup(SignupRequest(email, username, password))
-                if (response.token != null && response.user != null) {
+                val response = withContext(Dispatchers.IO) {
+                    authApi.signup(SignupRequest(email, username, password))
+                }
+                Log.d("ZumoAuth", "Signup response: token=${response.token != null}, error=${response.error}")
+                
+                if (response.token != null) {
                     tokenManager.saveToken(response.token)
-                    tokenManager.saveUserId(response.user.uid)
-                    _uiState.value = AuthUiState(
-                        isLoggedIn = true,
-                        currentUser = response.user
-                    )
+                    if (response.user != null) {
+                        tokenManager.saveUserId(response.user.uid)
+                        _uiState.value = AuthUiState(
+                            isLoggedIn = true,
+                            currentUser = response.user
+                        )
+                    } else {
+                        _uiState.value = AuthUiState(isLoggedIn = true)
+                    }
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -99,9 +122,10 @@ class AuthViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                Log.e("ZumoAuth", "Signup error", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Network error"
+                    error = "Network error: ${e.message}"
                 )
             }
         }
@@ -110,7 +134,9 @@ class AuthViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             try {
-                authApi.logout("Bearer ${tokenManager.getToken()}")
+                withContext(Dispatchers.IO) {
+                    authApi.logout("Bearer ${tokenManager.getToken()}")
+                }
             } catch (_: Exception) {}
             tokenManager.clear()
             _uiState.value = AuthUiState()
