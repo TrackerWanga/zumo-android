@@ -31,115 +31,33 @@ class AuthViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    init {
-        checkExistingSession()
-    }
-
-    private fun checkExistingSession() {
-        viewModelScope.launch {
-            try {
-                val token = tokenManager.getToken()
-                if (token != null) {
-                    val response = withContext(Dispatchers.IO) {
-                        authApi.verify("Bearer $token")
-                    }
-                    if (response.valid && response.user != null) {
-                        _uiState.value = AuthUiState(
-                            isLoggedIn = true,
-                            currentUser = response.user
-                        )
-                    } else {
-                        tokenManager.clearToken()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("ZumoAuth", "Session check failed", e)
-                tokenManager.clearToken()
-            }
-        }
-    }
-
     fun login(email: String, password: String) {
+        Log.d("ZUMO_AUTH", "login() called with email=$email")
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
+                Log.d("ZUMO_AUTH", "Making API call...")
                 val response = withContext(Dispatchers.IO) {
                     authApi.login(LoginRequest(email, password))
                 }
-                Log.d("ZumoAuth", "Login response: token=${response.token != null}, user=${response.user != null}, error=${response.error}")
+                Log.d("ZUMO_AUTH", "Response received: token=${response.token?.take(20)}..., user=${response.user?.username}, error=${response.error}")
                 
                 if (response.token != null) {
                     tokenManager.saveToken(response.token)
-                    if (response.user != null) {
-                        tokenManager.saveUserId(response.user.uid)
-                        _uiState.value = AuthUiState(
-                            isLoggedIn = true,
-                            currentUser = response.user
-                        )
-                    } else {
-                        _uiState.value = AuthUiState(isLoggedIn = true)
-                    }
+                    _uiState.value = AuthUiState(isLoggedIn = true)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = response.error ?: "Login failed - no token received"
+                        error = response.error ?: "Login failed"
                     )
                 }
             } catch (e: Exception) {
-                Log.e("ZumoAuth", "Login error", e)
+                Log.e("ZUMO_AUTH", "Login crashed", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Network error: ${e.message}"
+                    error = "Error: ${e.javaClass.simpleName} - ${e.message}"
                 )
             }
-        }
-    }
-
-    fun signup(email: String, username: String, password: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            try {
-                val response = withContext(Dispatchers.IO) {
-                    authApi.signup(SignupRequest(email, username, password))
-                }
-                Log.d("ZumoAuth", "Signup response: token=${response.token != null}, error=${response.error}")
-                
-                if (response.token != null) {
-                    tokenManager.saveToken(response.token)
-                    if (response.user != null) {
-                        tokenManager.saveUserId(response.user.uid)
-                        _uiState.value = AuthUiState(
-                            isLoggedIn = true,
-                            currentUser = response.user
-                        )
-                    } else {
-                        _uiState.value = AuthUiState(isLoggedIn = true)
-                    }
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = response.error ?: "Signup failed"
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("ZumoAuth", "Signup error", e)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Network error: ${e.message}"
-                )
-            }
-        }
-    }
-
-    fun logout() {
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) {
-                    authApi.logout("Bearer ${tokenManager.getToken()}")
-                }
-            } catch (_: Exception) {}
-            tokenManager.clear()
-            _uiState.value = AuthUiState()
         }
     }
 
